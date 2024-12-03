@@ -3,43 +3,42 @@
 #include <sys/time.h>
 #include <limits.h>
 
-#define MAXNODES 4000000
 #define MAXNEIGH 45
 #define LARGE INT_MAX
 
 typedef struct gnode {
     unsigned id;
-    unsigned h1;  // Heurística 1
-    unsigned h2;  // Heurística 2
-    unsigned gmin; // Mínimo costo acumulado
+    unsigned h1;
+    unsigned h2;
+    unsigned gmin;
     unsigned long heapindex;
 } gnode;
 
 typedef struct edge {
     unsigned dest;
-    unsigned cost1; // Costo 1
-    unsigned cost2; // Costo 2
+    unsigned cost1;
+    unsigned cost2;
 } edge;
 
-// Variables globales
-gnode graph[MAXNODES];                  // Nodos del grafo
-edge adj[MAXNODES][MAXNEIGH];           // Lista de adyacencias
-unsigned degree[MAXNODES] = {0};        // Grado de cada nodo
-unsigned num_gnodes = 0;                // Número total de nodos
+// Variables dinámicas
+gnode* graph;           // Nodos del grafo
+edge** adj;             // Lista de adyacencias
+unsigned* degree;       // Grado de cada nodo
+unsigned num_gnodes = 0;
 
-unsigned stat_expansions = 0;           // Nodos expandidos
-unsigned stat_generated = 0;            // Nodos generados
-unsigned total_solutions = 0;           // Total soluciones encontradas
+unsigned stat_expansions = 0;
+unsigned stat_generated = 0;
+unsigned total_solutions = 0;
 
 // Heap binario para BOA*
 typedef struct snode {
-    unsigned state; // Nodo actual
-    unsigned g1;    // Costo acumulado 1
-    unsigned g2;    // Costo acumulado 2
-    unsigned key;   // Clave para el heap
+    unsigned state;
+    unsigned g1;
+    unsigned g2;
+    unsigned key;
 } snode;
 
-snode* heap[MAXNODES];
+snode* heap[4000000];
 unsigned heapsize = 0;
 
 void insert_heap(snode* n) {
@@ -80,7 +79,6 @@ void boa_star(unsigned start, unsigned goal) {
     stat_generated = 0;
     total_solutions = 0;
 
-    // Nodo inicial
     snode* start_node = malloc(sizeof(snode));
     start_node->state = start;
     start_node->g1 = 0;
@@ -118,7 +116,7 @@ void boa_star(unsigned start, unsigned goal) {
             succ->state = e.dest;
             succ->g1 = new_g1;
             succ->g2 = new_g2;
-            succ->key = new_g1 + new_g2; // Simple combinación de costos
+            succ->key = new_g1 + new_g2;
             insert_heap(succ);
             stat_generated++;
         }
@@ -135,10 +133,20 @@ void read_graph(const char* filename) {
         exit(1);
     }
 
-    fscanf(file, "%u", &num_gnodes);
+    if (fscanf(file, "%u", &num_gnodes) != 1) {
+        printf("Error al leer el número de nodos.\n");
+        fclose(file);
+        exit(1);
+    }
+
+    graph = malloc(num_gnodes * sizeof(gnode));
+    degree = calloc(num_gnodes, sizeof(unsigned));
+    adj = malloc(num_gnodes * sizeof(edge*));
+
     for (unsigned i = 0; i < num_gnodes; i++) {
         graph[i].id = i;
         graph[i].gmin = LARGE;
+        adj[i] = malloc(MAXNEIGH * sizeof(edge));
     }
 
     unsigned u, v, c1, c2;
@@ -150,6 +158,16 @@ void read_graph(const char* filename) {
     }
 
     fclose(file);
+}
+
+// Liberar memoria del grafo
+void free_graph() {
+    for (unsigned i = 0; i < num_gnodes; i++) {
+        free(adj[i]);
+    }
+    free(adj);
+    free(graph);
+    free(degree);
 }
 
 // Proceso de una instancia
@@ -192,6 +210,7 @@ int main(int argc, char* argv[]) {
 
     if (!instancias_file || !salida_file) {
         printf("Error al abrir archivo de instancias o salida.\n");
+        free_graph();
         return 1;
     }
 
@@ -209,6 +228,7 @@ int main(int argc, char* argv[]) {
     fclose(instancias_file);
     fclose(salida_file);
 
+    free_graph();
     printf("Ejecución completada. Resultados guardados en %s\n", archivo_salida);
     return 0;
 }
