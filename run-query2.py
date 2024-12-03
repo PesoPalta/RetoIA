@@ -187,8 +187,8 @@ def save_results(results, output_file):
 def main():
     global goal, start, graph_node, solutions
     graph_file = "NY-road-d.txt"
-    instances_file = "Queries\\instancias.txt"
-    output_file = "Resultados\\resultados.txt"
+    instances_file = "Queries\\NY-queries-2p.txt"
+    output_file = "Resultados\\resultados-query2.txt"
     
     # Leer el grafo y preparar los nodos
     adjacent_table, pred_adjacent_table = read_adjacent_table(graph_file)
@@ -232,7 +232,7 @@ def main():
     # Guardar todos los resultados al final
     save_results(results, output_file)
 
-    print("Proceso completado. Los resultados se guardaron en 'resultados.txt'.")
+    print("Proceso completado. Los resultados se guardaron en 'resultados-query2.txt'.")
 
 if __name__ == "__main__":
     main()
