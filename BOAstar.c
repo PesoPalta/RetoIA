@@ -15,14 +15,14 @@ struct gnode {
     unsigned long heapindex;
 };
 
-gnode* heap_dij[MAXNODES];
+struct gnode* heap_dij[MAXNODES];
 unsigned heapsize_dij = 0;
 
 void emptyheap_dij() {
     heapsize_dij = 0;
 }
 
-gnode* topheap_dij() {
+struct gnode* topheap_dij() {
     if (heapsize_dij == 0)
         return NULL;
     return heap_dij[1];
