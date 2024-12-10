@@ -1,14 +1,12 @@
 import heapq
 import time
 
-# Tamaño máximo de la tabla de nodos (ajustable según necesidades)
 MAXNODES = 4000000
 MAXNEIGH = 45
 MAX_SOLUTIONS = 1000000
 LARGE = 1000000000
 BASE = 10000000
 
-# Estructura de los nodos del grafo
 class GraphNode:
     def __init__(self, id):
         self.id = id
@@ -16,13 +14,11 @@ class GraphNode:
         self.h2 = LARGE
         self.gmin = LARGE
         self.key = LARGE
-        self.heapindex = 0  # Usado para el índice en el heap
+        self.heapindex = 0
 
     def __lt__(self, other):
-        """Implementar la comparación entre nodos para que heapq pueda ordenarlos por 'key'."""
         return self.key < other.key
 
-# Estructura de los nodos de la búsqueda BOA*
 class SearchNode:
     def __init__(self):
         self.state = None
@@ -33,10 +29,8 @@ class SearchNode:
         self.searchtree = None
 
     def __lt__(self, other):
-        """Implementar la comparación entre nodos para que heapq pueda ordenarlos por 'key'."""
         return self.key < other.key
 
-# Función para manejar la cola de prioridad
 class BinaryHeap:
     def __init__(self, max_size):
         self.heap = []
@@ -44,14 +38,14 @@ class BinaryHeap:
         self.size = 0
 
     def insert(self, node):
-        heapq.heappush(self.heap, node)  # Insertamos solo el nodo, sin empaquetarlo en tupla
+        heapq.heappush(self.heap, node)
         node.heapindex = self.size
         self.size += 1
 
     def pop(self):
         if self.size == 0:
             return None
-        node = heapq.heappop(self.heap)  # Extraemos solo el nodo
+        node = heapq.heappop(self.heap)
         self.size -= 1
         return node
 
@@ -63,7 +57,6 @@ class BinaryHeap:
     def empty(self):
         return self.size == 0
 
-# Función para leer el grafo
 def read_adjacent_table(filename):
     global num_gnodes
     adjacent_table = {}
@@ -75,8 +68,6 @@ def read_adjacent_table(filename):
             if not line:
                 continue
             ori, dest, dist, t = map(int, line.split())
-            
-            # Restar 1 a los índices para ajustarlos a la indexación de Python (0-indexed)
             ori -= 1
             dest -= 1
 
@@ -93,7 +84,6 @@ def read_adjacent_table(filename):
     num_gnodes = len(adjacent_table)
     return adjacent_table, pred_adjacent_table
 
-# Función de Dijkstra (para las heurísticas)
 def backward_dijkstra(dim, graph_node, pred_adjacent_table):
     for node in graph_node:
         node.key = LARGE
@@ -114,15 +104,12 @@ def backward_dijkstra(dim, graph_node, pred_adjacent_table):
                 neighbor_node.key = new_weight
                 heap.insert(neighbor_node)
 
-# Implementación de BOA*
-def boastar(adjacent_table, graph_node, start, goal):
-    # Inicialización de estructuras
+def boastar(adjacent_table, graph_node, start, goal, solutions):
     open_list = BinaryHeap(MAX_SOLUTIONS)
-    closed_list = set()
     recycled_nodes = []
     nsolutions = 0
     minf_solution = LARGE
-    stat_expansions = 0  # Inicializamos las estadísticas
+    stat_expansions = 0
     stat_generated = 0
 
     start_node = SearchNode()
@@ -132,19 +119,22 @@ def boastar(adjacent_table, graph_node, start, goal):
     start_node.key = 0
     open_list.insert(start_node)
 
+    # Reiniciar gmin en todos los nodos
+    for node in graph_node:
+        node.gmin = LARGE
+
     while not open_list.empty():
         node = open_list.pop()
+        stat_expansions += 1
 
-        stat_expansions += 1  # Contamos las expansiones de nodos
-
-        if node.g2 >= graph_node[node.state].gmin or node.g2 + graph_node[node.state].h2 >= minf_solution:
+        if node.g2 >= graph_node[node.state].gmin:
             recycled_nodes.append(node)
             continue
 
         graph_node[node.state].gmin = node.g2
 
         if node.state == goal:
-            solutions.append((node.g1, node.g2))  # Almacenamos la solución en la lista 'solutions'
+            solutions.append((node.g1, node.g2))
             nsolutions += 1
             if minf_solution > node.g2:
                 minf_solution = node.g2
@@ -153,86 +143,104 @@ def boastar(adjacent_table, graph_node, start, goal):
         for neighbor, cost1, cost2 in adjacent_table[node.state]:
             new_g1 = node.g1 + cost1
             new_g2 = node.g2 + cost2
-            if new_g2 >= graph_node[neighbor].gmin or new_g2 + graph_node[neighbor].h2 >= minf_solution:
+
+            if new_g2 >= graph_node[neighbor].gmin:
                 continue
 
             succ = SearchNode()
             succ.state = neighbor
             succ.g1 = new_g1
             succ.g2 = new_g2
-            succ.key = new_g1 + new_g2  # Computar la clave para la cola de prioridad
+            succ.key = new_g1 + graph_node[neighbor].h1 + new_g2 + graph_node[neighbor].h2
 
-            stat_generated += 1  # Contamos los nodos generados
-
+            stat_generated += 1
             open_list.insert(succ)
 
     return nsolutions, stat_expansions, stat_generated
 
-# Función para leer las instancias desde el archivo
 def parse_instances(file_path):
     instances = []
     with open(file_path, "r") as file:
         for line in file:
-            # Filtrar instancias vacías o mal formateadas
             instance = list(map(int, line.strip().split()))
-            if len(instance) >= 2:  # Asegurarse de que hay al menos 2 elementos (start y goal)
+            if len(instance) >= 2:
                 instances.append(instance)
     return instances
 
-# Función para guardar los resultados en un archivo
 def save_results(results, output_file):
     with open(output_file, "w") as file:
         file.write("\n".join(results))
 
-def main():
-    global goal, start, graph_node, solutions
+def process_queries(query_files):
+    global goal, start, graph_node
     graph_file = "NY-road-d.txt"
-    instances_file = "Queries\\instancias.txt"
-    output_file = "Resultados\\resultados.txt"
     
-    # Leer el grafo y preparar los nodos
     adjacent_table, pred_adjacent_table = read_adjacent_table(graph_file)
     graph_node = [GraphNode(i) for i in range(len(adjacent_table))]
 
-    # Cargar las instancias
-    instances = parse_instances(instances_file)
+    for query_file in query_files:
+        instances = parse_instances(query_file["input_file"])
+        output_file = query_file["output_file"]
 
-    print("Inicio del proceso...")
+        print(f"Procesando {query_file['input_file']}...")
 
-    results = []
-    solutions = []  # Definir la lista de soluciones
+        results = []
 
-    # Ejecutar BOA* para cada instancia
-    for i, instance in enumerate(instances, 1):
-        if len(instance) < 2:
-            print(f"Instancia {i} está incompleta. Omitida.")
-            continue  # Omitir instancias incompletas
+        for i, instance in enumerate(instances, 1):
+            if len(instance) < 2:
+                print(f"Instancia {i} está incompleta. Omitida.")
+                continue
 
-        start = instance[0]
-        intermediates = instance[1:-1]
-        goal = instance[-1]
+            total_expansions = 0
+            total_generated = 0
+            total_time = 0.0
+            nsolutions = 0
 
-        # Ejecutar Dijkstra para las heurísticas h1 y h2
-        backward_dijkstra(1, graph_node, pred_adjacent_table)
-        backward_dijkstra(2, graph_node, pred_adjacent_table)
+            start = instance[0]
+            intermediates = instance[1:-1]
+            goal = instance[-1]
+            current_start = start
 
-        # Medir el tiempo de ejecución para cada instancia
-        instance_start_time = time.time()
-        nsolutions, stat_expansions, stat_generated = boastar(adjacent_table, graph_node, start, goal)
-        instance_end_time = time.time()
+            for current_goal in intermediates + [goal]:
+                solutions = []
 
-        execution_time = instance_end_time - instance_start_time
+                # Ejecutar backward Dijkstra para heurísticas h1 y h2
+                backward_dijkstra(1, graph_node, pred_adjacent_table)
+                backward_dijkstra(2, graph_node, pred_adjacent_table)
 
-        # Guardar los resultados de la instancia
-        results.append(f"{i};{nsolutions};{execution_time:.4f};{stat_expansions};{stat_generated}")
+                # Ejecutar BOA*
+                sub_start_time = time.time()
+                nsolutions_sub, stat_expansions, stat_generated = boastar(
+                    adjacent_table, graph_node, current_start, current_goal, solutions
+                )
+                sub_end_time = time.time()
 
-        # Notificar que la instancia fue procesada
-        print(f"Instancia {i} terminada en {execution_time:.4f} segundos.")
+                # Actualizar métricas
+                total_time += sub_end_time - sub_start_time
+                total_expansions += stat_expansions
+                total_generated += stat_generated
+                nsolutions += nsolutions_sub
 
-    # Guardar todos los resultados al final
-    save_results(results, output_file)
+                print(f"Procesado desde {current_start} hasta {current_goal} en {sub_end_time - sub_start_time:.4f} segundos.")
 
-    print("Proceso completado. Los resultados se guardaron en 'resultados.txt'.")
+                # Actualizar el inicio para el siguiente subproblema
+                current_start = current_goal
+
+            results.append(f"{i};{nsolutions};{total_time:.4f};{total_expansions};{total_generated}")
+            print(f"Instancia {i} terminada en {total_time:.4f} segundos.")
+
+        save_results(results, output_file)
+
+        print(f"Proceso completado para {query_file['input_file']}. Los resultados se guardaron en '{output_file}'.")
+
+def main():
+    query_files = [
+        {"input_file": "Queries\\NY-queries-1p.txt", "output_file": "Resultados\\resultados-query1.txt"}, # EN ESTE LISTADO SE PUEDE AGREGAR O QUITAR CUALQUIERA DE LOS ARCHIVOS
+        {"input_file": "Queries\\NY-queries-2p.txt", "output_file": "Resultados\\resultados-query2.txt"},
+        {"input_file": "Queries\\NY-queries-3p.txt", "output_file": "Resultados\\resultados-query3.txt"}
+    ]
+    
+    process_queries(query_files)
 
 if __name__ == "__main__":
     main()
